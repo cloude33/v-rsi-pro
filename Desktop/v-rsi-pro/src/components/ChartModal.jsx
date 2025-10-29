@@ -1,6 +1,6 @@
 // src/components/ChartModal.jsx
 import { useEffect } from 'react'
-import Chart from 'chart.js/auto'
+import Chart from 'chart.js'
 
 export default function ChartModal({ symbol, klines, period, steepness, onClose }) {
   const canvasRef = useRef(null)
