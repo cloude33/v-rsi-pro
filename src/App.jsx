@@ -3,6 +3,7 @@ import { useLocalStorage } from './hooks/useLocalStorage'
 import FilterBar from './components/FilterBar'
 import ChartModal from './components/ChartModal'
 import { calculateVRSI, sigmoid } from './utils/vrsi'
+import { getAllUSDTCoins, fetchKlines } from './utils/api'
 
 export default function App() {
   const [exchange, setExchange] = useLocalStorage('vr_exchange', 'binance')
@@ -45,9 +46,76 @@ export default function App() {
   }
 
   const startAnalysis = async () => {
-    // ... (vanilla'daki aynı mantık, setAllResults ile güncelle)
-    // İlerleme: setProgress
-    // Sonuç: setAllResults(new Map())
+    setIsAnalyzing(true)
+    setProgress(0)
+    setAllResults(new Map())
+
+    try {
+      // Get all USDT coins
+      const symbols = await getAllUSDTCoins(exchange, market)
+      
+      // Process in batches to avoid rate limiting
+      const batchSize = 5
+      const results = new Map()
+      
+      for (let i = 0; i < symbols.length; i += batchSize) {
+        const batch = symbols.slice(i, i + batchSize)
+        const batchPromises = batch.map(async (symbol) => {
+          try {
+            const klines = await fetchKlines(symbol, interval, period + 20, exchange, market)
+            if (!klines || klines.length < period + 1) return null
+            
+            const closes = klines.map(k => parseFloat(k[4]))
+            const volumes = klines.map(k => parseFloat(k[5]))
+            
+            const vrsi = calculateVRSI(closes, volumes, period)
+            if (vrsi === null) return null
+            
+            const normalized = sigmoid(vrsi - 50, steepness)
+            
+            let decision
+            if (normalized > 0.2) decision = 'LONG'
+            else if (normalized < -0.2) decision = 'SHORT'
+            else decision = 'NÖTR'
+            
+            const price = closes[closes.length - 1]
+            const change = ((price - closes[closes.length - 2]) / closes[closes.length - 2]) * 100
+            
+            return {
+              symbol,
+              normalized,
+              vrsi,
+              price,
+              change,
+              decision,
+              klines
+            }
+          } catch (error) {
+            console.warn(`Error processing ${symbol}:`, error)
+            return null
+          }
+        })
+        
+        const batchResults = await Promise.allSettled(batchPromises)
+        
+        batchResults.forEach((result, index) => {
+          if (result.status === 'fulfilled' && result.value) {
+            results.set(result.value.symbol, result.value)
+          }
+        })
+        
+        // Update progress
+        const progressPercent = Math.round(((i + batch.length) / symbols.length) * 100)
+        setProgress(progressPercent)
+        setAllResults(new Map(results))
+      }
+      
+      setAllResults(results)
+    } catch (error) {
+      console.error('Analysis error:', error)
+    } finally {
+      setIsAnalyzing(false)
+    }
   }
 
   useEffect(() => {

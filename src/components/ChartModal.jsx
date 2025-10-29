@@ -1,6 +1,7 @@
 // src/components/ChartModal.jsx
-import { useEffect } from 'react'
-import Chart from 'chart.js'
+import { useEffect, useRef } from 'react'
+import Chart from 'chart.js/auto'
+import { calculateVRSI } from '../utils/vrsi'
 
 export default function ChartModal({ symbol, klines, period, steepness, onClose }) {
   const canvasRef = useRef(null)
