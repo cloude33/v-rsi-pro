@@ -1,38 +1,84 @@
-import { useEffect, useRef } from 'react'
+// src/components/ChartModal.jsx
+import { useEffect } from 'react'
 import Chart from 'chart.js/auto'
-import { calculateVRSI, sigmoid } from '../utils/vrsi'
 
 export default function ChartModal({ symbol, klines, period, steepness, onClose }) {
   const canvasRef = useRef(null)
   const chartRef = useRef(null)
 
   useEffect(() => {
-    if (!klines) return
+    if (!klines || !canvasRef.current) return
+
     const closes = klines.map(k => parseFloat(k[4]))
     const volumes = klines.map(k => parseFloat(k[5]))
-    const signals = []
+    const times = klines.map(k => new Date(k[0]).toLocaleTimeString())
 
+    const vrsiData = []
     for (let i = period; i < closes.length; i++) {
-      const vrsi = calculateVRSI(closes.slice(0, i + 1), volumes.slice(0, i + 1), period)
-      if (vrsi !== null) signals.push(sigmoid(vrsi - 50, steepness))
+      const sliceCloses = closes.slice(i - period, i)
+      const sliceVolumes = volumes.slice(i - period, i)
+      const vrsi = calculateVRSI(sliceCloses, sliceVolumes, period)
+      vrsiData.push(vrsi !== null ? vrsi : 50)
     }
 
-    if (chartRef.current) chartRef.current.destroy()
-    chartRef.current = new Chart(canvasRef.current, {
+    const ctx = canvasRef.current.getContext('2d')
+    chartRef.current = new Chart(ctx, {
       type: 'line',
-      data: { labels: signals.map((_, i) => i + 1), datasets: [{ data: signals, borderColor: '#5cb85c', fill: true }] },
-      options: { scales: { y: { min: -1, max: 1 } }, plugins: { legend: { display: false } } }
+      data: {
+        labels: times.slice(-vrsiData.length),
+        datasets: [
+          {
+            label: 'V-RSI',
+            data: vrsiData,
+            borderColor: '#5cb85c',
+            fill: false
+          },
+          {
+            label: 'Fiyat',
+            data: closes.slice(-vrsiData.length),
+            borderColor: '#007bff',
+            fill: false,
+            yAxisID: 'price'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        scales: {
+          y: { position: 'left', title: { display: true, text: 'V-RSI' } },
+          price: { position: 'right', title: { display: true, text: 'Fiyat' } }
+        }
+      }
     })
-  }, [klines, period, steepness])
+
+    return () => {
+      if (chartRef.current) chartRef.current.destroy()
+    }
+  }, [klines, period])
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
-      <div style={{ background: 'white', padding: '20px', borderRadius: '12px', maxWidth: '800px', width: '90%' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px' }}>
-          <h2>{symbol} - Sinyal Geçmişi</h2>
-          <span onClick={onClose} style={{ cursor: 'pointer', fontSize: '1.5em' }}>X</span>
-        </div>
-        <canvas ref={canvasRef} height="300"></canvas>
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(0,0,0,0.5)',
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      zIndex: 1000
+    }}>
+      <div style={{
+        background: 'white',
+        padding: '20px',
+        borderRadius: '8px',
+        width: '90%',
+        maxWidth: '800px'
+      }}>
+        <h2>{symbol} Grafiği</h2>
+        <canvas ref={canvasRef}></canvas>
+        <button onClick={onClose} style={{ marginTop: '10px' }}>Kapat</button>
       </div>
     </div>
   )
