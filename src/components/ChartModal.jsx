@@ -1,7 +1,10 @@
 // src/components/ChartModal.jsx
 import { useEffect, useRef } from 'react'
-import Chart from 'chart.js/auto'
+import { Chart, LineController, LineElement, PointElement, LinearScale, CategoryScale, Title, Tooltip, Legend } from 'chart.js'
 import { calculateVRSI } from '../utils/vrsi'
+
+// Register the components we need
+Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Title, Tooltip, Legend)
 
 export default function ChartModal({ symbol, klines, period, steepness, onClose }) {
   const canvasRef = useRef(null)
@@ -22,6 +25,11 @@ export default function ChartModal({ symbol, klines, period, steepness, onClose 
       vrsiData.push(vrsi !== null ? vrsi : 50)
     }
 
+    // Destroy existing chart if it exists
+    if (chartRef.current) {
+      chartRef.current.destroy()
+    }
+
     const ctx = canvasRef.current.getContext('2d')
     chartRef.current = new Chart(ctx, {
       type: 'line',
@@ -32,30 +40,44 @@ export default function ChartModal({ symbol, klines, period, steepness, onClose 
             label: 'V-RSI',
             data: vrsiData,
             borderColor: '#5cb85c',
-            fill: false
+            backgroundColor: 'rgba(0,0,0,0)',
+            fill: false,
+            tension: 0.1
           },
           {
             label: 'Fiyat',
             data: closes.slice(-vrsiData.length),
             borderColor: '#007bff',
+            backgroundColor: 'rgba(0,0,0,0)',
             fill: false,
-            yAxisID: 'price'
+            yAxisID: 'price',
+            tension: 0.1
           }
         ]
       },
       options: {
         responsive: true,
+        maintainAspectRatio: false,
         scales: {
-          y: { position: 'left', title: { display: true, text: 'V-RSI' } },
-          price: { position: 'right', title: { display: true, text: 'Fiyat' } }
+          y: { 
+            position: 'left', 
+            title: { display: true, text: 'V-RSI' } 
+          },
+          price: { 
+            position: 'right', 
+            title: { display: true, text: 'Fiyat' } 
+          }
         }
       }
     })
 
     return () => {
-      if (chartRef.current) chartRef.current.destroy()
+      if (chartRef.current) {
+        chartRef.current.destroy()
+        chartRef.current = null
+      }
     }
-  }, [klines, period])
+  }, [klines, period, symbol])
 
   return (
     <div style={{
@@ -75,10 +97,13 @@ export default function ChartModal({ symbol, klines, period, steepness, onClose 
         padding: '20px',
         borderRadius: '8px',
         width: '90%',
-        maxWidth: '800px'
+        maxWidth: '800px',
+        height: '80%'
       }}>
         <h2>{symbol} Grafiği</h2>
-        <canvas ref={canvasRef}></canvas>
+        <div style={{ height: 'calc(100% - 100px)' }}>
+          <canvas ref={canvasRef}></canvas>
+        </div>
         <button onClick={onClose} style={{ marginTop: '10px' }}>Kapat</button>
       </div>
     </div>
