@@ -6,30 +6,41 @@ import { calculateVRSI, sigmoid } from './utils/vrsi'
 import { getAllUSDTCoins, fetchKlines } from './utils/api'
 
 export default function App() {
+  // === AYARLAR ===
   const [exchange, setExchange] = useLocalStorage('vr_exchange', 'binance')
   const [market, setMarket] = useLocalStorage('vr_market', 'spot')
-  const [interval, setInterval] = useState('15m')
-  const [period, setPeriod] = useState(14)
-  const [steepness, setSteepness] = useState(0.12)
-  const [currentFilter, setCurrentFilter] = useState('all')
-  const [favorites, setFavorites] = useLocalStorage('vr_fav', [])
-  const [allResults, setAllResults] = useState(new Map())
-  const [progress, setProgress] = useState(0)
+  const [interval, setInterval] = useLocalStorage('vr_interval', '15m')
+  const [period, setPeriod] = useLocalStorage('vr_period', 14)
+  const [steepness, setSteepness] = useLocalStorage('vr_steepness', 0.12)
+
+  // === ANALİZ DURUMU ===
   const [isAnalyzing, setIsAnalyzing] = useState(false)
-  const [soundEnabled, setSoundEnabled] = useState(false)
-  const [showChart, setShowChart] = useState(false)
-  const [selectedSymbol, setSelectedSymbol] = useState('')
-  const wsRef = useRef(null)
+  const [progress, setProgress] = useState(0)
+  const [allResults, setAllResults] = useState(new Map())
+
+  // === FAVORİLER & SES ===
+  const [favorites, setFavorites] = useLocalStorage('vr_fav', [])
+  const [soundEnabled, setSoundEnabled] = useLocalStorage('vr_sound', true)
   const audioRef = useRef(new Audio('https://assets.mixkit.co/sfx/preview/mixkit-alarm-digital-clock-beep-989.mp3'))
 
+  // === FİLTRELER ===
+  const [currentFilter, setCurrentFilter] = useState('all')
+  const [coinMode, setCoinMode] = useState('all') // all | custom | favorites
+  const [customCoins, setCustomCoins] = useState('')
+
+  // === FAVORİ SET ===
   const favoritesSet = new Set(favorites)
 
-  const filteredResults = [...allResults.values()].filter(item => {
-    if (currentFilter === 'all') return true
-    if (currentFilter === 'FAV') return favoritesSet.has(item.symbol)
-    return item.decision === currentFilter
-  }).sort((a, b) => Math.abs(b.normalized) - Math.abs(a.normalized))
+  // === FİLTRELENMİŞ SONUÇLAR ===
+  const filteredResults = [...allResults.values()]
+    .filter(item => {
+      if (currentFilter === 'all') return true
+      if (currentFilter === 'FAV') return favoritesSet.has(item.symbol)
+      return item.decision === currentFilter
+    })
+    .sort((a, b) => Math.abs(b.normalized) - Math.abs(a.normalized))
 
+  // === İSTATİSTİKLER ===
   const stats = {
     total: allResults.size,
     long: [...allResults.values()].filter(i => i.decision === 'LONG').length,
@@ -38,6 +49,7 @@ export default function App() {
     fav: [...allResults.values()].filter(i => favoritesSet.has(i.symbol)).length
   }
 
+  // === FAVORİ EKLE/ÇIKAR ===
   const toggleFavorite = (symbol) => {
     const newFavs = favoritesSet.has(symbol)
       ? favorites.filter(s => s !== symbol)
@@ -45,87 +57,85 @@ export default function App() {
     setFavorites(newFavs)
   }
 
+  // === SES ÇAL ===
+  const playSound = () => {
+    if (soundEnabled && audioRef.current) {
+      audioRef.current.play().catch(() => {})
+    }
+  }
+
+  // === ANA TARAMA FONKSİYONU ===
   const startAnalysis = async () => {
     setIsAnalyzing(true)
     setProgress(0)
     setAllResults(new Map())
 
-    try {
-      // Get all USDT coins
-      const symbols = await getAllUSDTCoins(exchange, market)
-      
-      // Process in batches to avoid rate limiting
-      const batchSize = 5
-      const results = new Map()
-      
-      for (let i = 0; i < symbols.length; i += batchSize) {
-        const batch = symbols.slice(i, i + batchSize)
-        const batchPromises = batch.map(async (symbol) => {
-          try {
-            const klines = await fetchKlines(symbol, interval, period + 20, exchange, market)
-            if (!klines || klines.length < period + 1) return null
-            
-            const closes = klines.map(k => parseFloat(k[4]))
-            const volumes = klines.map(k => parseFloat(k[5]))
-            
-            const vrsi = calculateVRSI(closes, volumes, period)
-            if (vrsi === null) return null
-            
-            const normalized = sigmoid(vrsi - 50, steepness)
-            
-            let decision
-            if (normalized > 0.2) decision = 'LONG'
-            else if (normalized < -0.2) decision = 'SHORT'
-            else decision = 'NÖTR'
-            
-            const price = closes[closes.length - 1]
-            const change = ((price - closes[closes.length - 2]) / closes[closes.length - 2]) * 100
-            
-            return {
-              symbol,
-              normalized,
-              vrsi,
-              price,
-              change,
-              decision,
-              klines
-            }
-          } catch (error) {
-            console.warn(`Error processing ${symbol}:`, error)
-            return null
-          }
-        })
-        
-        const batchResults = await Promise.allSettled(batchPromises)
-        
-        batchResults.forEach((result, index) => {
-          if (result.status === 'fulfilled' && result.value) {
-            results.set(result.value.symbol, result.value)
-          }
-        })
-        
-        // Update progress
-        const progressPercent = Math.round(((i + batch.length) / symbols.length) * 100)
-        setProgress(progressPercent)
-        setAllResults(new Map(results))
-      }
-      
-      setAllResults(results)
-    } catch (error) {
-      console.error('Analysis error:', error)
-    } finally {
-      setIsAnalyzing(false)
+    let coins = []
+    if (coinMode === 'custom') {
+      coins = customCoins.split(',').map(c => c.trim().toUpperCase() + 'USDT').filter(c => c.length > 4)
+    } else if (coinMode === 'favorites') {
+      coins = favorites
+    } else {
+      coins = await getAllUSDTCoins(exchange, market)
     }
+
+    if (!coins.length) {
+      alert('Coin bulunamadı!')
+      setIsAnalyzing(false)
+      return
+    }
+
+    const batchSize = 6
+    let scanned = 0
+    const total = coins.length
+
+    for (let i = 0; i < coins.length; i += batchSize) {
+      const batch = coins.slice(i, i + batchSize)
+      await Promise.all(
+        batch.map(async (sym) => {
+          const klines = await fetchKlines(sym, interval, period + 50, exchange, market)
+          if (!klines || klines.length === 0) return
+
+          const closes = klines.map(k => parseFloat(k[4]))
+          const volumes = klines.map(k => parseFloat(k[5]))
+          const vrsi = calculateVRSI(closes, volumes, period)
+          if (vrsi === null) return
+
+          const norm = sigmoid(vrsi - 50, steepness)
+          const price = closes[closes.length - 1]
+          const prevPrice = closes[closes.length - 2]
+          const change = prevPrice ? ((price - prevPrice) / prevPrice * 100).toFixed(2) : '0.00'
+          let decision = norm > 0.25 ? 'LONG' : norm < -0.25 ? 'SHORT' : 'NÖTR'
+
+          setAllResults(prev => new Map(prev).set(sym, {
+            symbol: sym,
+            normalized: norm,
+            vrsi,
+            price,
+            change,
+            decision,
+            klines
+          }))
+
+          scanned++
+          setProgress(Math.round((scanned / total) * 100))
+        })
+      )
+
+      await new Promise(resolve => setTimeout(resolve, 200))
+    }
+
+    setIsAnalyzing(false)
+    if (soundEnabled) audioRef.current.play().catch(() => {})
   }
 
-  useEffect(() => {
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission()
-    }
-  }, [])
+  // === GRAFİK MODAL ===
+  const [showChart, setShowChart] = useState(false)
+  const [selectedSymbol, setSelectedSymbol] = useState('')
 
-  const playSound = () => {
-    if (soundEnabled) audioRef.current.play().catch(() => {})
+  const openChart = (symbol) => {
+    setSelectedSymbol(symbol)
+    setShowChart(true)
   }
 
   return (
@@ -133,12 +143,12 @@ export default function App() {
       <h1>V-RSI Pro PWA</h1>
 
       {/* Borsa & Piyasa */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '15px' }}>
         <div>
           <label>Borsa</label>
           <select value={exchange} onChange={e => setExchange(e.target.value)}>
-            <option value="binance">BİNANCE</option>
-            <option value="bybit">BYBIT</option>
+            <option value="binance">Binance</option>
+            <option value="bybit">Bybit</option>
             <option value="okx">OKX</option>
             <option value="mexc">MEXC</option>
           </select>
@@ -147,73 +157,148 @@ export default function App() {
           <label>Piyasa</label>
           <select value={market} onChange={e => setMarket(e.target.value)}>
             <option value="spot">Spot</option>
-            <option value="futures">Perpetual Futures</option>
+            <option value="futures">Futures</option>
           </select>
         </div>
       </div>
 
-      {/* Diğer bileşenler: FuturesSettings, CoinSelection, AnalysisSettings */}
+      {/* Analiz Ayarları */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '15px' }}>
+        <div>
+          <label>Zaman Dilimi</label>
+          <select value={interval} onChange={e => setInterval(e.target.value)}>
+            <option value="1m">1 Dakika</option>
+            <option value="5m">5 Dakika</option>
+            <option value="15m">15 Dakika</option>
+            <option value="1h">1 Saat</option>
+          </select>
+        </div>
+        <div>
+          <label>Periyot</label>
+          <input type="number" value={period} onChange={e => setPeriod(+e.target.value)} min="5" max="50" />
+        </div>
+        <div>
+          <label>Sigmoid (α)</label>
+          <input type="number" value={steepness} onChange={e => setSteepness(+e.target.value)} step="0.01" min="0.01" max="1" />
+        </div>
+      </div>
 
-      <div style={{ display: 'flex', gap: '6px', margin: '15px 0' }}>
-        <button onClick={startAnalysis} disabled={isAnalyzing}>Başlat</button>
-        <button onClick={() => setSoundEnabled(!soundEnabled)}>
+      {/* Coin Modu */}
+      <div style={{ marginBottom: '15px' }}>
+        <label>Coin Seçimi</label>
+        <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+          <button onClick={() => setCoinMode('all')} style={{ background: coinMode === 'all' ? '#007bff' : '#eee', color: coinMode === 'all' ? 'white' : 'black', padding: '8px 16px', borderRadius: '6px', border: 'none' }}>Tümü</button>
+          <button onClick={() => setCoinMode('custom')} style={{ background: coinMode === 'custom' ? '#007bff' : '#eee', color: coinMode === 'custom' ? 'white' : 'black', padding: '8px 16px', borderRadius: '6px', border: 'none' }}>Özel</button>
+          <button onClick={() => setCoinMode('favorites')} style={{ background: coinMode === 'favorites' ? '#007bff' : '#eee', color: coinMode === 'favorites' ? 'white' : 'black', padding: '8px 16px', borderRadius: '6px', border: 'none' }}>Favoriler</button>
+        </div>
+        {coinMode === 'custom' && (
+          <textarea
+            placeholder="BTC, ETH, SOL (virgülle ayır)"
+            value={customCoins}
+            onChange={e => setCustomCoins(e.target.value)}
+            style={{ width: '100%', marginTop: '8px', height: '60px', padding: '8px', borderRadius: '6px', border: '1px solid #ddd' }}
+          />
+        )}
+      </div>
+
+      {/* Başlat & Ses */}
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
+        <button 
+          onClick={startAnalysis} 
+          disabled={isAnalyzing}
+          style={{ flex: 1, background: '#28a745', color: 'white', padding: '12px', borderRadius: '6px', border: 'none', fontWeight: 'bold' }}
+        >
+          {isAnalyzing ? `Taranıyor... ${progress}%` : 'Başlat'}
+        </button>
+        <button onClick={() => setSoundEnabled(!soundEnabled)} style={{ background: soundEnabled ? '#ffc107' : '#eee', color: soundEnabled ? 'white' : 'black', padding: '12px', borderRadius: '6px', border: 'none' }}>
           Ses: {soundEnabled ? 'AÇIK' : 'KAPALI'}
         </button>
       </div>
 
+      {/* İlerleme Çubuğu */}
       {isAnalyzing && (
-        <div style={{ margin: '15px 0' }}>
-          <div style={{ height: '22px', background: '#e9ecef', borderRadius: '11px', overflow: 'hidden' }}>
-            <div style={{ height: '100%', width: `${progress}%`, background: 'linear-gradient(90deg, #5cb85c, #4cae4c)', transition: 'width 0.4s' }} />
+        <div style={{ marginBottom: '15px' }}>
+          <div style={{ height: '8px', background: '#eee', borderRadius: '4px', overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${progress}%`, background: '#5cb85c', transition: 'width 0.3s' }} />
           </div>
-          <div style={{ textAlign: 'center', marginTop: '6px', fontSize: '0.85em' }}>{progress}%</div>
         </div>
       )}
 
+      {/* Filtre Butonları */}
       <FilterBar currentFilter={currentFilter} onFilter={setCurrentFilter} />
 
-      <div style={{ background: '#f8f9fa', padding: '10px', borderRadius: '6px', marginBottom: '15px', fontSize: '0.9em' }}>
-        Toplam: <strong>{stats.total}</strong> | LONG: <strong style={{color: '#28a745'}}>{stats.long}</strong> | SHORT: <strong style={{color: '#dc3545'}}>{stats.short}</strong> | NÖTR: <strong style={{color: '#ffc107'}}>{stats.neutral}</strong> | FAV: <strong style={{color: '#007bff'}}>{stats.fav}</strong>
+      {/* İstatistikler */}
+      <div style={{
+        background: '#f8f9fa',
+        padding: '10px',
+        borderRadius: '6px',
+        marginBottom: '15px',
+        fontSize: '0.9em',
+        display: 'flex',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap'
+      }}>
+        <span>Toplam: <strong>{stats.total}</strong></span>
+        <span>LONG: <strong style={{color: '#28a745'}}>{stats.long}</strong></span>
+        <span>SHORT: <strong style={{color: '#dc3545'}}>{stats.short}</strong></span>
+        <span>NÖTR: <strong style={{color: '#ffc107'}}>{stats.neutral}</strong></span>
+        <span>FAV: <strong style={{color: '#007bff'}}>{stats.fav}</strong></span>
       </div>
 
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85em' }}>
-        <thead>
-          <tr>
-            <th></th>
-            <th>Coin</th>
-            <th>Sinyal</th>
-            <th>V-RSI</th>
-            <th>Fiyat</th>
-            <th>Değişim</th>
-            <th>Karar</th>
-          </tr>
-        </thead>
-        <tbody>
-          {filteredResults.map(item => (
-            <tr key={item.symbol}>
-              <td>
-                <span
-                  style={{ cursor: 'pointer', fontSize: '1.3em', color: favoritesSet.has(item.symbol) ? '#28a745' : '#ccc' }}
-                  onClick={() => toggleFavorite(item.symbol)}
-                >Star</span>
-              </td>
-              <td onClick={() => { setSelectedSymbol(item.symbol); setShowChart(true); }} style={{ cursor: 'pointer' }}>
-                <strong>{item.symbol.replace('USDT', '')}</strong>
-              </td>
-              <td>{item.normalized.toFixed(3)}</td>
-              <td>{item.vrsi.toFixed(1)}</td>
-              <td>{item.price.toFixed(item.price > 1 ? 4 : 6)}</td>
-              <td style={{ color: item.change >= 0 ? 'green' : 'red' }}>
-                {item.change >= 0 ? '+' : ''}{item.change}%
-              </td>
-              <td style={{ fontWeight: 'bold', color: item.decision === 'LONG' ? 'green' : item.decision === 'SHORT' ? 'red' : 'orange' }}>
-                {item.decision}
-              </td>
+      {/* Sonuç Tablosu */}
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85em' }}>
+          <thead>
+            <tr style={{ background: '#f8f9fa' }}>
+              <th style={{ width: '30px' }}></th>
+              <th>Coin</th>
+              <th>Sinyal</th>
+              <th>V-RSI</th>
+              <th>Fiyat</th>
+              <th>Değişim</th>
+              <th>Karar</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {filteredResults.map(item => (
+              <tr key={item.symbol} style={{ borderBottom: '1px solid #eee' }}>
+                <td>
+                  <span
+                    onClick={() => toggleFavorite(item.symbol)}
+                    style={{
+                      cursor: 'pointer',
+                      fontSize: '1.3em',
+                      color: favoritesSet.has(item.symbol) ? '#28a745' : '#ccc'
+                    }}
+                  >
+                    ★
+                  </span>
+                </td>
+                <td
+                  onClick={() => openChart(item.symbol)}
+                  style={{ cursor: 'pointer', fontWeight: 'bold' }}
+                >
+                  {item.symbol.replace('USDT', '')}
+                </td>
+                <td>{item.normalized.toFixed(3)}</td>
+                <td>{item.vrsi.toFixed(1)}</td>
+                <td>{item.price.toFixed(item.price > 1 ? 4 : 6)}</td>
+                <td style={{ color: item.change >= 0 ? 'green' : 'red' }}>
+                  {item.change >= 0 ? '+' : ''}{item.change}%
+                </td>
+                <td style={{
+                  fontWeight: 'bold',
+                  color: item.decision === 'LONG' ? 'green' : item.decision === 'SHORT' ? 'red' : '#ffc107'
+                }}>
+                  {item.decision}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
+      {/* Grafik Modal */}
       {showChart && (
         <ChartModal
           symbol={selectedSymbol}
