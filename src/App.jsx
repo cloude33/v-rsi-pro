@@ -234,7 +234,6 @@ export default function App() {
         borderRadius: '6px',
         marginBottom: '15px',
         fontSize: '0.9em',
-<<<<<<< HEAD
         textAlign: 'center',
         fontWeight: 'bold'
       }}>
@@ -243,71 +242,72 @@ export default function App() {
         SHORT: <span style={{color: '#dc3545'}}>{stats.short}</span> | 
         NÖTR: <span style={{color: '#ffc107'}}>{stats.neutral}</span> | 
         FAV: <span style={{color: '#007bff'}}>{stats.fav}</span>
-=======
-        display: 'flex',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap'
-      }}>
-        <span>Toplam: <strong>{stats.total}</strong></span>
-        <span>LONG: <strong style={{color: '#28a745'}}>{stats.long}</strong></span>
-        <span>SHORT: <strong style={{color: '#dc3545'}}>{stats.short}</strong></span>
-        <span>NÖTR: <strong style={{color: '#ffc107'}}>{stats.neutral}</strong></span>
-        <span>FAV: <strong style={{color: '#007bff'}}>{stats.fav}</strong></span>
->>>>>>> b83c58f591599c10e7bb4c994e80a66c739ca290
       </div>
 
       {/* Sonuç Tablosu */}
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85em' }}>
-          <thead>
-            <tr style={{ background: '#f8f9fa' }}>
-              <th style={{ width: '30px' }}></th>
-              <th>Coin</th>
-              <th>Sinyal</th>
-              <th>V-RSI</th>
-              <th>Fiyat</th>
-              <th>Değişim</th>
-              <th>Karar</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredResults.map(item => (
-              <tr key={item.symbol} style={{ borderBottom: '1px solid #eee' }}>
-                <td>
-                  <span
-                    onClick={() => toggleFavorite(item.symbol)}
-                    style={{
-                      cursor: 'pointer',
-                      fontSize: '1.3em',
-                      color: favoritesSet.has(item.symbol) ? '#28a745' : '#ccc'
-                    }}
-                  >
-                    ★
-                  </span>
-                </td>
-                <td
-                  onClick={() => openChart(item.symbol)}
-                  style={{ cursor: 'pointer', fontWeight: 'bold' }}
-                >
-                  {item.symbol.replace('USDT', '')}
-                </td>
-                <td>{item.normalized.toFixed(3)}</td>
-                <td>{item.vrsi.toFixed(1)}</td>
-                <td>{item.price.toFixed(item.price > 1 ? 4 : 6)}</td>
-                <td style={{ color: item.change >= 0 ? 'green' : 'red' }}>
-                  {item.change >= 0 ? '+' : ''}{item.change}%
-                </td>
-                <td style={{
-                  fontWeight: 'bold',
-                  color: item.decision === 'LONG' ? 'green' : item.decision === 'SHORT' ? 'red' : '#ffc107'
-                }}>
-                  {item.decision}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+<div style={{ overflowX: 'auto', marginTop: '10px' }}>
+  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85em' }}>
+    <thead>
+      <tr style={{ background: '#f8f9fa', textAlign: 'center' }}>
+        <th style={{ width: '35px', borderRight: '1px solid #ddd' }}></th>
+        <th style={{ borderRight: '1px solid #ddd' }}>Coin</th>
+        <th style={{ borderRight: '1px solid #ddd' }}>Sinyal</th>
+        <th style={{ borderRight: '1px solid #ddd' }}>V-RSI</th>
+        <th style={{ borderRight: '1px solid #ddd' }}>Fiyat</th>
+        <th style={{ borderRight: '1px solid #ddd' }}>Değişim</th>
+        <th>Karar</th>
+      </tr>
+    </thead>
+    <tbody>
+      {filteredResults.map(item => (
+        <tr key={item.symbol} style={{ borderBottom: '1px solid #eee' }}>
+          <td style={{ textAlign: 'center', borderRight: '1px solid #ddd' }}>
+            <span
+              onClick={() => toggleFavorite(item.symbol)}
+              style={{
+                cursor: 'pointer',
+                fontSize: '1.3em',
+                color: favoritesSet.has(item.symbol) ? '#28a745' : '#ccc'
+              }}
+            >
+              ★
+            </span>
+          </td>
+          <td
+            onClick={() => openChart(item.symbol)}
+            style={{ cursor: 'pointer', fontWeight: 'bold', textAlign: 'center', borderRight: '1px solid #ddd' }}
+          >
+            {item.symbol.replace('USDT', '')}
+          </td>
+          <td style={{ textAlign: 'center', borderRight: '1px solid #ddd' }}>
+            {item.normalized.toFixed(3)}
+          </td>
+          <td style={{ textAlign: 'center', borderRight: '1px solid #ddd' }}>
+            {item.vrsi.toFixed(1)}
+          </td>
+          <td style={{ textAlign: 'center', borderRight: '1px solid #ddd' }}>
+            {item.price.toFixed(item.price > 1 ? 4 : 6)}
+          </td>
+          <td style={{ 
+            textAlign: 'center', 
+            borderRight: '1px solid #ddd',
+            color: item.change >= 0 ? '#28a745' : '#dc3545',
+            fontWeight: 'bold'
+          }}>
+            {item.change >= 0 ? '+' : ''}{item.change}%
+          </td>
+          <td style={{
+            textAlign: 'center',
+            fontWeight: 'bold',
+            color: item.decision === 'LONG' ? '#28a745' : item.decision === 'SHORT' ? '#dc3545' : '#ffc107'
+          }}>
+            {item.decision}
+          </td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+</div>
 
       {/* Grafik Modal */}
       {showChart && (
