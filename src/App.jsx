@@ -139,14 +139,14 @@ export default function App() {
   }
 
   return (
-    <div className="container">
-      <h1>V-RSI Pro PWA</h1>
+    <div className="container" style={{ fontFamily: 'system-ui, sans-serif', maxWidth: '1000px', margin: '0 auto', padding: '15px' }}>
+      <h1 style={{ textAlign: 'center', color: '#2c3e50', marginBottom: '20px' }}>V-RSI Pro PWA</h1>
 
       {/* Borsa & Piyasa */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '15px' }}>
         <div>
-          <label>Borsa</label>
-          <select value={exchange} onChange={e => setExchange(e.target.value)}>
+          <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600' }}>Borsa</label>
+          <select value={exchange} onChange={e => setExchange(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ddd' }}>
             <option value="binance">Binance</option>
             <option value="bybit">Bybit</option>
             <option value="okx">OKX</option>
@@ -154,8 +154,8 @@ export default function App() {
           </select>
         </div>
         <div>
-          <label>Piyasa</label>
-          <select value={market} onChange={e => setMarket(e.target.value)}>
+          <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600' }}>Piyasa</label>
+          <select value={market} onChange={e => setMarket(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ddd' }}>
             <option value="spot">Spot</option>
             <option value="futures">Futures</option>
           </select>
@@ -165,38 +165,41 @@ export default function App() {
       {/* Analiz Ayarları */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '15px' }}>
         <div>
-          <label>Zaman Dilimi</label>
-          <select value={interval} onChange={e => setInterval(e.target.value)}>
-            <option value="1m">1 Dakika</option>
+          <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600' }}>Zaman Dilimi</label>
+          <select value={interval} onChange={e => setInterval(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ddd' }}>
             <option value="5m">5 Dakika</option>
             <option value="15m">15 Dakika</option>
+            <option value="30m">30 Dakika</option>
             <option value="1h">1 Saat</option>
+            <option value="4h">4 Saat</option>
+            <option value="1d">Günlük</option>
+            <option value="1w">Haftalık</option>
           </select>
         </div>
         <div>
-          <label>Periyot</label>
-          <input type="number" value={period} onChange={e => setPeriod(+e.target.value)} min="5" max="50" />
+          <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600' }}>Periyot</label>
+          <input type="number" value={period} onChange={e => setPeriod(+e.target.value)} min="5" max="50" style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ddd' }} />
         </div>
         <div>
-          <label>Sigmoid (α)</label>
-          <input type="number" value={steepness} onChange={e => setSteepness(+e.target.value)} step="0.01" min="0.01" max="1" />
+          <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600' }}>Sigmoid (α)</label>
+          <input type="number" value={steepness} onChange={e => setSteepness(+e.target.value)} step="0.01" min="0.01" max="1" style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ddd' }} />
         </div>
       </div>
 
       {/* Coin Modu */}
       <div style={{ marginBottom: '15px' }}>
-        <label>Coin Seçimi</label>
-        <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-          <button onClick={() => setCoinMode('all')} style={{ background: coinMode === 'all' ? '#007bff' : '#eee', color: coinMode === 'all' ? 'white' : 'black', padding: '8px 16px', borderRadius: '6px', border: 'none' }}>Tümü</button>
-          <button onClick={() => setCoinMode('custom')} style={{ background: coinMode === 'custom' ? '#007bff' : '#eee', color: coinMode === 'custom' ? 'white' : 'black', padding: '8px 16px', borderRadius: '6px', border: 'none' }}>Özel</button>
-          <button onClick={() => setCoinMode('favorites')} style={{ background: coinMode === 'favorites' ? '#007bff' : '#eee', color: coinMode === 'favorites' ? 'white' : 'black', padding: '8px 16px', borderRadius: '6px', border: 'none' }}>Favoriler</button>
+        <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>Coin Seçimi</label>
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+          <button onClick={() => setCoinMode('all')} style={{ background: coinMode === 'all' ? '#007bff' : '#eee', color: coinMode === 'all' ? 'white' : 'black', padding: '8px 16px', borderRadius: '6px', border: 'none', flex: 1 }}>Tümü</button>
+          <button onClick={() => setCoinMode('custom')} style={{ background: coinMode === 'custom' ? '#007bff' : '#eee', color: coinMode === 'custom' ? 'white' : 'black', padding: '8px 16px', borderRadius: '6px', border: 'none', flex: 1 }}>Özel</button>
+          <button onClick={() => setCoinMode('favorites')} style={{ background: coinMode === 'favorites' ? '#007bff' : '#eee', color: coinMode === 'favorites' ? 'white' : 'black', padding: '8px 16px', borderRadius: '6px', border: 'none', flex: 1 }}>Favoriler</button>
         </div>
         {coinMode === 'custom' && (
           <textarea
             placeholder="BTC, ETH, SOL (virgülle ayır)"
             value={customCoins}
             onChange={e => setCustomCoins(e.target.value)}
-            style={{ width: '100%', marginTop: '8px', height: '60px', padding: '8px', borderRadius: '6px', border: '1px solid #ddd' }}
+            style={{ width: '100%', height: '60px', padding: '8px', borderRadius: '6px', border: '1px solid #ddd', fontSize: '0.9em' }}
           />
         )}
       </div>
@@ -206,11 +209,11 @@ export default function App() {
         <button 
           onClick={startAnalysis} 
           disabled={isAnalyzing}
-          style={{ flex: 1, background: '#28a745', color: 'white', padding: '12px', borderRadius: '6px', border: 'none', fontWeight: 'bold' }}
+          style={{ flex: 1, background: '#28a745', color: 'white', padding: '12px', borderRadius: '6px', border: 'none', fontWeight: 'bold', fontSize: '1em' }}
         >
           {isAnalyzing ? `Taranıyor... ${progress}%` : 'Başlat'}
         </button>
-        <button onClick={() => setSoundEnabled(!soundEnabled)} style={{ background: soundEnabled ? '#ffc107' : '#eee', color: soundEnabled ? 'white' : 'black', padding: '12px', borderRadius: '6px', border: 'none' }}>
+        <button onClick={() => setSoundEnabled(!soundEnabled)} style={{ background: soundEnabled ? '#ffc107' : '#eee', color: soundEnabled ? 'white' : 'black', padding: '12px', borderRadius: '6px', border: 'none', fontSize: '0.9em' }}>
           Ses: {soundEnabled ? 'AÇIK' : 'KAPALI'}
         </button>
       </div>
@@ -227,7 +230,7 @@ export default function App() {
       {/* Filtre Butonları */}
       <FilterBar currentFilter={currentFilter} onFilter={setCurrentFilter} />
 
-      {/* İstatistikler */}
+      {/* Sıkı İstatistikler */}
       <div style={{
         background: '#f8f9fa',
         padding: '10px',
@@ -244,70 +247,70 @@ export default function App() {
         FAV: <span style={{color: '#007bff'}}>{stats.fav}</span>
       </div>
 
-      {/* Sonuç Tablosu */}
-<div style={{ overflowX: 'auto', marginTop: '10px' }}>
-  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85em' }}>
-    <thead>
-      <tr style={{ background: '#f8f9fa', textAlign: 'center' }}>
-        <th style={{ width: '35px', borderRight: '1px solid #ddd' }}></th>
-        <th style={{ borderRight: '1px solid #ddd' }}>Coin</th>
-        <th style={{ borderRight: '1px solid #ddd' }}>Sinyal</th>
-        <th style={{ borderRight: '1px solid #ddd' }}>V-RSI</th>
-        <th style={{ borderRight: '1px solid #ddd' }}>Fiyat</th>
-        <th style={{ borderRight: '1px solid #ddd' }}>Değişim</th>
-        <th>Karar</th>
-      </tr>
-    </thead>
-    <tbody>
-      {filteredResults.map(item => (
-        <tr key={item.symbol} style={{ borderBottom: '1px solid #eee' }}>
-          <td style={{ textAlign: 'center', borderRight: '1px solid #ddd' }}>
-            <span
-              onClick={() => toggleFavorite(item.symbol)}
-              style={{
-                cursor: 'pointer',
-                fontSize: '1.3em',
-                color: favoritesSet.has(item.symbol) ? '#28a745' : '#ccc'
-              }}
-            >
-              ★
-            </span>
-          </td>
-          <td
-            onClick={() => openChart(item.symbol)}
-            style={{ cursor: 'pointer', fontWeight: 'bold', textAlign: 'center', borderRight: '1px solid #ddd' }}
-          >
-            {item.symbol.replace('USDT', '')}
-          </td>
-          <td style={{ textAlign: 'center', borderRight: '1px solid #ddd' }}>
-            {item.normalized.toFixed(3)}
-          </td>
-          <td style={{ textAlign: 'center', borderRight: '1px solid #ddd' }}>
-            {item.vrsi.toFixed(1)}
-          </td>
-          <td style={{ textAlign: 'center', borderRight: '1px solid #ddd' }}>
-            {item.price.toFixed(item.price > 1 ? 4 : 6)}
-          </td>
-          <td style={{ 
-            textAlign: 'center', 
-            borderRight: '1px solid #ddd',
-            color: item.change >= 0 ? '#28a745' : '#dc3545',
-            fontWeight: 'bold'
-          }}>
-            {item.change >= 0 ? '+' : ''}{item.change}%
-          </td>
-          <td style={{
-            textAlign: 'center',
-            fontWeight: 'bold',
-            color: item.decision === 'LONG' ? '#28a745' : item.decision === 'SHORT' ? '#dc3545' : '#ffc107'
-          }}>
-            {item.decision}
-          </td>
-        </tr>
-      ))}
-    </tbody>
-  </table>
-</div>
+      {/* Sonuç Tablosu - | ile ayrılmış sütunlar */}
+      <div style={{ overflowX: 'auto', marginTop: '10px' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85em' }}>
+          <thead>
+            <tr style={{ background: '#f8f9fa', textAlign: 'center' }}>
+              <th style={{ width: '35px', borderRight: '1px solid #ddd' }}></th>
+              <th style={{ borderRight: '1px solid #ddd' }}>Coin</th>
+              <th style={{ borderRight: '1px solid #ddd' }}>Sinyal</th>
+              <th style={{ borderRight: '1px solid #ddd' }}>V-RSI</th>
+              <th style={{ borderRight: '1px solid #ddd' }}>Fiyat</th>
+              <th style={{ borderRight: '1px solid #ddd' }}>Değişim</th>
+              <th>Karar</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredResults.map(item => (
+              <tr key={item.symbol} style={{ borderBottom: '1px solid #eee' }}>
+                <td style={{ textAlign: 'center', borderRight: '1px solid #ddd' }}>
+                  <span
+                    onClick={() => toggleFavorite(item.symbol)}
+                    style={{
+                      cursor: 'pointer',
+                      fontSize: '1.3em',
+                      color: favoritesSet.has(item.symbol) ? '#28a745' : '#ccc'
+                    }}
+                  >
+                    Star
+                  </span>
+                </td>
+                <td
+                  onClick={() => openChart(item.symbol)}
+                  style={{ cursor: 'pointer', fontWeight: 'bold', textAlign: 'center', borderRight: '1px solid #ddd' }}
+                >
+                  {item.symbol.replace('USDT', '')}
+                </td>
+                <td style={{ textAlign: 'center', borderRight: '1px solid #ddd' }}>
+                  {item.normalized.toFixed(3)}
+                </td>
+                <td style={{ textAlign: 'center', borderRight: '1px solid #ddd' }}>
+                  {item.vrsi.toFixed(1)}
+                </td>
+                <td style={{ textAlign: 'center', borderRight: '1px solid #ddd' }}>
+                  {item.price.toFixed(item.price > 1 ? 4 : 6)}
+                </td>
+                <td style={{ 
+                  textAlign: 'center', 
+                  borderRight: '1px solid #ddd',
+                  color: item.change >= 0 ? '#28a745' : '#dc3545',
+                  fontWeight: 'bold'
+                }}>
+                  {item.change >= 0 ? '+' : ''}{item.change}%
+                </td>
+                <td style={{
+                  textAlign: 'center',
+                  fontWeight: 'bold',
+                  color: item.decision === 'LONG' ? '#28a745' : item.decision === 'SHORT' ? '#dc3545' : '#ffc107'
+                }}>
+                  {item.decision}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       {/* Grafik Modal */}
       {showChart && (
