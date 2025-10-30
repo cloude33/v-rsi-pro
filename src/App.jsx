@@ -304,7 +304,7 @@ export default function App() {
                       color: favoritesSet.has(item.symbol) ? '#28a745' : '#ccc'
                     }}
                   >
-                    Star
+                    {favoritesSet.has(item.symbol) ? '★' : '☆'}
                   </span>
                 </td>
                 <td
