@@ -234,15 +234,14 @@ export default function App() {
         borderRadius: '6px',
         marginBottom: '15px',
         fontSize: '0.9em',
-        display: 'flex',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap'
+        textAlign: 'center',
+        fontWeight: 'bold'
       }}>
-        <span>Toplam: <strong>{stats.total}</strong></span>
-        <span>LONG: <strong style={{color: '#28a745'}}>{stats.long}</strong></span>
-        <span>SHORT: <strong style={{color: '#dc3545'}}>{stats.short}</strong></span>
-        <span>NÖTR: <strong style={{color: '#ffc107'}}>{stats.neutral}</strong></span>
-        <span>FAV: <strong style={{color: '#007bff'}}>{stats.fav}</strong></span>
+        Toplam: <span style={{color: '#333'}}>{stats.total}</span> | 
+        LONG: <span style={{color: '#28a745'}}>{stats.long}</span> | 
+        SHORT: <span style={{color: '#dc3545'}}>{stats.short}</span> | 
+        NÖTR: <span style={{color: '#ffc107'}}>{stats.neutral}</span> | 
+        FAV: <span style={{color: '#007bff'}}>{stats.fav}</span>
       </div>
 
       {/* Sonuç Tablosu */}
