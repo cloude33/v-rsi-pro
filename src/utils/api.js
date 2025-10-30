@@ -1,28 +1,38 @@
 // src/utils/api.js
 
-// ⚠️ API_BASE'te artık BOŞLUK YOK
+// Akıllı fetch: Binance doğrudan, diğerleri Vercel proxy üzerinden
+const fetchWithSmartProxy = async (url, exchange) => {
+  if (exchange === 'binance') {
+    const res = await fetch(url);
+    if (!res.ok) {
+      throw new Error(`Binance API error: ${res.status} ${res.statusText}`);
+    }
+    return res;
+  }
+
+  // Diğer borsalar: kendi Vercel proxy'miz üzerinden
+  const proxyUrl = `/api/proxy?url=${encodeURIComponent(url)}`;
+  const res = await fetch(proxyUrl);
+  if (!res.ok) {
+    const text = await res.text().catch(() => 'unknown');
+    throw new Error(`Proxy error for ${exchange}: ${res.status} ${text}`);
+  }
+  return res;
+};
+
+// API_BASE: BOŞLUKSUZ ve doğru
 const API_BASE = {
   binance: { spot: 'https://api.binance.com', futures: 'https://fapi.binance.com' },
   bybit: { spot: 'https://api.bybit.com', futures: 'https://api.bybit.com' },
   okx: { spot: 'https://www.okx.com', futures: 'https://www.okx.com' },
   mexc: { spot: 'https://api.mexc.com', futures: 'https://contract.mexc.com' }
-}
+};
 
 const WS_BASE = {
   binance: { spot: 'wss://stream.binance.com:9443', futures: 'wss://fstream.binance.com' },
   bybit: { spot: 'wss://stream.bybit.com/v5/public/spot', futures: 'wss://stream.bybit.com/v5/public/linear' },
   okx: { spot: 'wss://ws.okx.com:8443/ws/v5/public', futures: 'wss://ws.okx.com:8443/ws/v5/public' },
   mexc: { spot: 'wss://wbs.mexc.com/ws', futures: 'wss://contract.mexc.com/ws' }
-}
-
-// Proxy fonksiyonu: Vercel üzerinden güvenli istek
-const fetchWithProxy = async (url) => {
-  const proxyUrl = `/api/proxy?url=${encodeURIComponent(url)}`;
-  const res = await fetch(proxyUrl);
-  if (!res.ok) {
-    throw new Error(`Proxy error: ${res.status} ${res.statusText}`);
-  }
-  return res;
 };
 
 // === 1. Tüm USDT Çiftlerini Al ===
@@ -39,14 +49,14 @@ export async function getAllUSDTCoins(exchange, market) {
     url = `${api}/api/v5/market/tickers?instType=${isFutures ? 'SWAP' : 'SPOT'}`;
   } else if (exchange === 'mexc') {
     if (isFutures) {
-      url = `${api}/api/v1/contract/list`; // doğru endpoint
+      url = `${api}/api/v1/contract/list`;
     } else {
       url = `${api}/api/v3/exchangeInfo`;
     }
   }
 
   try {
-    const res = await fetchWithProxy(url);
+    const res = await fetchWithSmartProxy(url, exchange);
     const data = await res.json();
 
     let symbols = [];
@@ -109,7 +119,7 @@ export async function fetchKlines(symbol, interval, limit, exchange, market) {
   }
 
   try {
-    const res = await fetchWithProxy(url);
+    const res = await fetchWithSmartProxy(url, exchange);
     const data = await res.json();
 
     let klines = [];
@@ -141,8 +151,8 @@ export async function fetchKlines(symbol, interval, limit, exchange, market) {
       try {
         if (exchange === 'binance') {
           const [frRes, tickerRes] = await Promise.all([
-            fetchWithProxy(`https://fapi.binance.com/fapi/v1/premiumIndex?symbol=${symbol}`),
-            fetchWithProxy(`https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=${symbol}`)
+            fetchWithSmartProxy(`https://fapi.binance.com/fapi/v1/premiumIndex?symbol=${symbol}`, 'binance'),
+            fetchWithSmartProxy(`https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=${symbol}`, 'binance')
           ]);
           const fr = await frRes.json();
           const ticker = await tickerRes.json();
@@ -150,7 +160,10 @@ export async function fetchKlines(symbol, interval, limit, exchange, market) {
           oi = parseFloat(ticker.openInterest) || 0;
           oiPrev = oi * 0.95;
         } else if (exchange === 'bybit') {
-          const frRes = await fetchWithProxy(`https://api.bybit.com/v5/market/tickers?category=linear&symbol=${symbol}`);
+          const frRes = await fetchWithSmartProxy(
+            `https://api.bybit.com/v5/market/tickers?category=linear&symbol=${symbol}`,
+            'bybit'
+          );
           const frData = await frRes.json();
           const tick = frData.result?.list?.[0];
           funding = parseFloat(tick?.fundingRate) || 0;
@@ -158,8 +171,8 @@ export async function fetchKlines(symbol, interval, limit, exchange, market) {
           oiPrev = oi * 0.93;
         } else if (exchange === 'okx') {
           const [frRes, tickerRes] = await Promise.all([
-            fetchWithProxy(`https://www.okx.com/api/v5/public/funding-rate?instId=${symbol}-SWAP`),
-            fetchWithProxy(`https://www.okx.com/api/v5/market/ticker?instId=${symbol}-SWAP`)
+            fetchWithSmartProxy(`https://www.okx.com/api/v5/public/funding-rate?instId=${symbol}-SWAP`, 'okx'),
+            fetchWithSmartProxy(`https://www.okx.com/api/v5/market/ticker?instId=${symbol}-SWAP`, 'okx')
           ]);
           const fr = await frRes.json();
           const ticker = await tickerRes.json();
@@ -168,7 +181,10 @@ export async function fetchKlines(symbol, interval, limit, exchange, market) {
           oiPrev = oi * 0.94;
         } else if (exchange === 'mexc') {
           const sym = symbol.replace('USDT', '_USDT');
-          const frRes = await fetchWithProxy(`https://contract.mexc.com/api/v1/contract/funding_rate/${sym}`);
+          const frRes = await fetchWithSmartProxy(
+            `https://contract.mexc.com/api/v1/contract/funding_rate/${sym}`,
+            'mexc'
+          );
           const frData = await frRes.json();
           if (frData?.success && frData.data) {
             funding = parseFloat(frData.data.fundingRate) || 0;
@@ -191,7 +207,7 @@ export async function fetchKlines(symbol, interval, limit, exchange, market) {
   }
 }
 
-// === 3. WebSocket Canlı Fiyat (WebSocket CORS yok, doğrudan çalışır) ===
+// === 3. WebSocket Canlı Fiyat ===
 export function createWebSocket(symbols, exchange, market, onMessage) {
   const isFutures = market === 'futures';
   const base = WS_BASE[exchange][isFutures ? 'futures' : 'spot'];
