@@ -17,6 +17,7 @@ export default function App() {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [progress, setProgress] = useState(0)
   const [allResults, setAllResults] = useState(new Map())
+  const abortControllerRef = useRef(null) // Durdurma için
 
   // === FAVORİLER & SES ===
   const [favorites, setFavorites] = useLocalStorage('vr_fav', [])
@@ -64,11 +65,22 @@ export default function App() {
     }
   }
 
+  // === DURDURMA FONKSİYONU ===
+  const stopAnalysis = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+    }
+    setIsAnalyzing(false)
+    setProgress(0)
+  }
+
   // === ANA TARAMA FONKSİYONU ===
   const startAnalysis = async () => {
     setIsAnalyzing(true)
     setProgress(0)
     setAllResults(new Map())
+    abortControllerRef.current = new AbortController()
 
     let coins = []
     if (coinMode === 'custom') {
@@ -89,44 +101,55 @@ export default function App() {
     let scanned = 0
     const total = coins.length
 
-    for (let i = 0; i < coins.length; i += batchSize) {
-      const batch = coins.slice(i, i + batchSize)
-      await Promise.all(
-        batch.map(async (sym) => {
-          const klines = await fetchKlines(sym, interval, period + 50, exchange, market)
-          if (!klines || klines.length === 0) return
+    try {
+      for (let i = 0; i < coins.length; i += batchSize) {
+        if (abortControllerRef.current?.signal.aborted) break
 
-          const closes = klines.map(k => parseFloat(k[4]))
-          const volumes = klines.map(k => parseFloat(k[5]))
-          const vrsi = calculateVRSI(closes, volumes, period)
-          if (vrsi === null) return
+        const batch = coins.slice(i, i + batchSize)
+        await Promise.all(
+          batch.map(async (sym) => {
+            if (abortControllerRef.current?.signal.aborted) return
 
-          const norm = sigmoid(vrsi - 50, steepness)
-          const price = closes[closes.length - 1]
-          const prevPrice = closes[closes.length - 2]
-          const change = prevPrice ? ((price - prevPrice) / prevPrice * 100).toFixed(2) : '0.00'
-          let decision = norm > 0.25 ? 'LONG' : norm < -0.25 ? 'SHORT' : 'NÖTR'
+            const klines = await fetchKlines(sym, interval, period + 50, exchange, market)
+            if (!klines || klines.length === 0) return
 
-          setAllResults(prev => new Map(prev).set(sym, {
-            symbol: sym,
-            normalized: norm,
-            vrsi,
-            price,
-            change,
-            decision,
-            klines
-          }))
+            const closes = klines.map(k => parseFloat(k[4]))
+            const volumes = klines.map(k => parseFloat(k[5]))
+            const vrsi = calculateVRSI(closes, volumes, period)
+            if (vrsi === null) return
 
-          scanned++
-          setProgress(Math.round((scanned / total) * 100))
-        })
-      )
+            const norm = sigmoid(vrsi - 50, steepness)
+            const price = closes[closes.length - 1]
+            const prevPrice = closes[closes.length - 2]
+            const change = prevPrice ? ((price - prevPrice) / prevPrice * 100).toFixed(2) : '0.00'
+            let decision = norm > 0.25 ? 'LONG' : norm < -0.25 ? 'SHORT' : 'NÖTR'
 
-      await new Promise(resolve => setTimeout(resolve, 200))
+            setAllResults(prev => new Map(prev).set(sym, {
+              symbol: sym,
+              normalized: norm,
+              vrsi,
+              price,
+              change,
+              decision,
+              klines
+            }))
+
+            scanned++
+            setProgress(Math.round((scanned / total) * 100))
+          })
+        )
+
+        await new Promise(resolve => setTimeout(resolve, 200))
+      }
+    } catch (error) {
+      if (error.name !== 'AbortError') console.error(error)
     }
 
     setIsAnalyzing(false)
-    if (soundEnabled) audioRef.current.play().catch(() => {})
+    if (!abortControllerRef.current?.signal.aborted && soundEnabled) {
+      audioRef.current.play().catch(() => {})
+    }
+    abortControllerRef.current = null
   }
 
   // === GRAFİK MODAL ===
@@ -204,14 +227,22 @@ export default function App() {
         )}
       </div>
 
-      {/* Başlat & Ses */}
+      {/* Başlat & Durdur & Ses */}
       <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
         <button 
-          onClick={startAnalysis} 
-          disabled={isAnalyzing}
-          style={{ flex: 1, background: '#28a745', color: 'white', padding: '12px', borderRadius: '6px', border: 'none', fontWeight: 'bold', fontSize: '1em' }}
+          onClick={isAnalyzing ? stopAnalysis : startAnalysis} 
+          style={{ 
+            flex: 1, 
+            background: isAnalyzing ? '#dc3545' : '#28a745', 
+            color: 'white', 
+            padding: '12px', 
+            borderRadius: '6px', 
+            border: 'none', 
+            fontWeight: 'bold', 
+            fontSize: '1em' 
+          }}
         >
-          {isAnalyzing ? `Taranıyor... ${progress}%` : 'Başlat'}
+          {isAnalyzing ? `Durdur (${progress}%)` : 'Başlat'}
         </button>
         <button onClick={() => setSoundEnabled(!soundEnabled)} style={{ background: soundEnabled ? '#ffc107' : '#eee', color: soundEnabled ? 'white' : 'black', padding: '12px', borderRadius: '6px', border: 'none', fontSize: '0.9em' }}>
           Ses: {soundEnabled ? 'AÇIK' : 'KAPALI'}
@@ -247,13 +278,13 @@ export default function App() {
         FAV: <span style={{color: '#007bff'}}>{stats.fav}</span>
       </div>
 
-      {/* Sonuç Tablosu - | ile ayrılmış sütunlar */}
+      {/* Sonuç Tablosu - Yıldız + Sola Dayalı Coin */}
       <div style={{ overflowX: 'auto', marginTop: '10px' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85em' }}>
           <thead>
             <tr style={{ background: '#f8f9fa', textAlign: 'center' }}>
               <th style={{ width: '35px', borderRight: '1px solid #ddd' }}></th>
-              <th style={{ borderRight: '1px solid #ddd' }}>Coin</th>
+              <th style={{ borderRight: '1px solid #ddd', textAlign: 'left', paddingLeft: '8px' }}>Coin</th>
               <th style={{ borderRight: '1px solid #ddd' }}>Sinyal</th>
               <th style={{ borderRight: '1px solid #ddd' }}>V-RSI</th>
               <th style={{ borderRight: '1px solid #ddd' }}>Fiyat</th>
@@ -278,7 +309,13 @@ export default function App() {
                 </td>
                 <td
                   onClick={() => openChart(item.symbol)}
-                  style={{ cursor: 'pointer', fontWeight: 'bold', textAlign: 'center', borderRight: '1px solid #ddd' }}
+                  style={{ 
+                    cursor: 'pointer', 
+                    fontWeight: 'bold', 
+                    textAlign: 'left', 
+                    paddingLeft: '8px',
+                    borderRight: '1px solid #ddd' 
+                  }}
                 >
                   {item.symbol.replace('USDT', '')}
                 </td>
